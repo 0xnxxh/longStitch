@@ -3,6 +3,8 @@ import { planSegments, type PairMatch, type Raster, type Rect } from '../core/st
 import { canvasFor, decode, toBlob } from './image';
 import type { Job } from './worker';
 import MaskEditor from './MaskEditor';
+import EdgeCropper from './EdgeCropper';
+import { outputBounds, type Trim } from './output';
 
 type Item = { id: string; file: File; url: string; width: number; height: number };
 type Preview = { url: string; width: number; height: number; fullWidth: number; fullHeight: number; unresolved: number; recovered: number };
@@ -28,6 +30,8 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
   const [scale, setScale] = useState(1);
   const [dirty, setDirty] = useState(false);
   const [redacting, setRedacting] = useState(false);
+  const [trimming, setTrimming] = useState(false);
+  const [trim, setTrim] = useState<Trim>({ top: 0, bottom: 0 });
   const [redactions, setRedactions] = useState<Rect[]>([]);
   const [draft, setDraft] = useState<Rect | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -48,7 +52,7 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
 
   function clearPreview() {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current.url);
-    previewRef.current = null; setPreview(null); setRedactions([]); setDraft(null);
+    previewRef.current = null; setPreview(null); setRedactions([]); setDraft(null); setTrim({ top: 0, bottom: 0 }); setTrimming(false);
   }
   function invalidate() { setPairs([]); setOriginalPairs([]); setMasks([]); setOriginalMasks([]); setMaskSource(0); clearPreview(); setDirty(false); setError(''); setNotice(''); }
   function cancel() {
@@ -171,10 +175,8 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
       const images = await readImages(id, width);
       const scaledPairs = pairs.map(p => ({ ...p, offset: Math.round(p.offset * scale), seam: Math.round(p.seam * scale) }));
       const scaledMasks = masks.map(rs => rs.map(r => ({ x: Math.floor(r.x * scale), y: Math.floor(r.y * scale), width: Math.ceil(r.width * scale), height: Math.ceil(r.height * scale) })));
-      const result = await runWorker({ kind: 'compose', images, pairs: scaledPairs, masks: scaledMasks }, id);
-      const canvas = canvasFor(result.image); const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#15191c';
-      for (const r of redactions) ctx.fillRect(Math.floor(r.x * canvas.width), Math.floor(r.y * canvas.height), Math.ceil(r.width * canvas.width), Math.ceil(r.height * canvas.height));
+      const result = await runWorker({ kind: 'compose', images, pairs: scaledPairs, masks: scaledMasks, output: { originalHeight: preview!.fullHeight, trim, redactions } }, id);
+      const canvas = canvasFor(result.image);
       const blob = await toBlob(canvas, format); canvas.width = 0;
       if (id !== sequence.current) throw new Error('CANCELLED');
       const name = `longstitch-${items.length}.${format === 'image/png' ? 'png' : 'jpg'}`;
@@ -190,9 +192,12 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
   const selectedPair = pairs[selected];
   const unresolved = pairs.filter(p => p.status === 'uncertain').length;
   const changed = () => { setDirty(true); setRedactions([]); };
+  const previewBounds = preview ? outputBounds(preview.height, preview.fullHeight, trim) : null;
+  const visibleTop = preview && previewBounds ? previewBounds.top / preview.height : 0;
+  const visibleSpan = preview && previewBounds ? previewBounds.height / preview.height : 1;
   function point(event: React.PointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) };
+    return { x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: visibleTop + Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) * visibleSpan };
   }
 
   return <main className="workspace" onDragOver={event => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }} onDrop={event => { if (event.dataTransfer.files.length) { event.preventDefault(); void addFiles([...event.dataTransfer.files]); } }}>
@@ -216,13 +221,14 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
         {!!unresolved && <div className="message warning" role="status">{t(`${unresolved} 条接缝需要确认。请在下方调整位移，或补充一张有重叠的截图。`, `${unresolved} seams need review. Adjust their alignment below or add an overlapping screenshot.`)}</div>}
         {dirty && <div className="message warning">{t('调整尚未应用。更新预览后再导出。', 'Changes are not applied. Update the preview before exporting.')}<button disabled={!!busy || !!unresolved} onClick={() => void refreshPreview()}>{t('更新预览', 'Update preview')}</button></div>}
         <div className={`preview-stage ${preview ? 'has-result' : ''}`}>
-          {preview ? <div className="preview-scroll"><div className={`image-sheet ${redacting ? 'redacting' : ''}`} style={{ width: `${zoom}%`, maxWidth: preview.fullWidth }} onPointerDown={e => { if (!redacting || dirty || busy) return; e.currentTarget.setPointerCapture(e.pointerId); const p = point(e); pointerStart.current = p; setDraft({ ...p, width: 0, height: 0 }); }} onPointerMove={e => { if (!pointerStart.current) return; const p = point(e), a = pointerStart.current; setDraft({ x: Math.min(p.x, a.x), y: Math.min(p.y, a.y), width: Math.abs(p.x - a.x), height: Math.abs(p.y - a.y) }); }} onPointerUp={() => { if (draft && draft.width > .002 && draft.height > .001) setRedactions([...redactions, draft]); setDraft(null); pointerStart.current = null; }} onPointerCancel={() => { setDraft(null); pointerStart.current = null; }}>
-            <img src={preview.url} alt={t('长截图预览，导出保留原始分辨率', 'Stitched preview; export preserves original resolution')} draggable={false} />
-            {[...redactions, ...(draft ? [draft] : [])].map((r, i) => <span key={i} className="redaction" style={{ left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.width * 100}%`, height: `${r.height * 100}%` }} />)}
+          {preview ? <div className="preview-scroll"><div className={`image-sheet ${redacting ? 'redacting' : ''}`} style={{ width: `${zoom}%`, maxWidth: preview.fullWidth, aspectRatio: `${preview.width} / ${previewBounds!.height}`, overflow: 'hidden' }} onPointerDown={e => { if (!redacting || dirty || busy) return; e.currentTarget.setPointerCapture(e.pointerId); const p = point(e); pointerStart.current = p; setDraft({ ...p, width: 0, height: 0 }); }} onPointerMove={e => { if (!pointerStart.current) return; const p = point(e), a = pointerStart.current; setDraft({ x: Math.min(p.x, a.x), y: Math.min(p.y, a.y), width: Math.abs(p.x - a.x), height: Math.abs(p.y - a.y) }); }} onPointerUp={() => { if (draft && draft.width > .002 && draft.height > .001) setRedactions([...redactions, draft]); setDraft(null); pointerStart.current = null; }} onPointerCancel={() => { setDraft(null); pointerStart.current = null; }}>
+            <img src={preview.url} alt={t('长截图预览，导出保留原始分辨率', 'Stitched preview; export preserves original resolution')} draggable={false} style={{ position: 'absolute', width: '100%', height: `${100 / visibleSpan}%`, top: `${-visibleTop / visibleSpan * 100}%`, left: 0 }} />
+            {[...redactions, ...(draft ? [draft] : [])].map((r, i) => <span key={i} className="redaction" style={{ left: `${r.x * 100}%`, top: `${(r.y - visibleTop) / visibleSpan * 100}%`, width: `${r.width * 100}%`, height: `${r.height / visibleSpan * 100}%` }} />)}
           </div></div> : <div className="empty-result"><div className="paper-stack" aria-hidden="true"><div><i /><i /><i /></div><div><i /><i /><i /><i /></div><span>↕</span></div><h3>{t('完整故事，从这里开始', 'Your whole story starts here')}</h3><p>{t('添加至少两张截图，我们会找到它们之间的重叠。', 'Add at least two screenshots. We’ll find where they connect.')}</p><div className="empty-steps"><span>1. {t('选择截图', 'Choose')}</span><b>→</b><span>2. {t('检查接缝', 'Review')}</span><b>→</b><span>3. {t('保存长图', 'Save')}</span></div></div>}
         </div>
-        {preview && <div className="export-bar"><div className="output-details"><strong>{preview.fullWidth} × {preview.fullHeight}</strong><span>{t('原图尺寸 · 全宽保留', 'Original size · Full width')}</span></div><button className={redacting ? 'active' : ''} disabled={dirty || !!busy} onClick={() => setRedacting(!redacting)} aria-pressed={redacting}>{redacting ? t('退出遮挡', 'Finish redacting') : t('遮挡隐私', 'Redact')}</button>{!!redactions.length && <button onClick={() => setRedactions(redactions.slice(0, -1))} disabled={!!busy}>{t('撤销遮挡', 'Undo redaction')}</button>}<select aria-label={t('导出格式', 'Export format')} value={format} onChange={e => setFormat(e.target.value)}><option value="image/png">PNG</option><option value="image/jpeg">JPEG</option></select><select aria-label={t('导出尺寸', 'Export size')} value={scale} onChange={e => setScale(+e.target.value)}><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option></select><button className="primary" disabled={!!busy || dirty || !!unresolved} onClick={() => void exportImage()}>{t('保存长图', 'Save image')} ↓</button>{typeof navigator !== 'undefined' && !!navigator.share && <button disabled={!!busy || dirty} onClick={() => void exportImage(true)}>{t('分享', 'Share')}</button>}</div>}
-        {redacting && <p className="inline-note">{t('在预览图上拖出矩形，实体色遮挡会写入导出图片。调整接缝会清除已有遮挡，请重新检查。', 'Drag a rectangle over the preview. Redactions are baked into the export. Realigning clears redactions; review them again.')}</p>}
+        {preview && <div className="export-bar"><div className="output-details"><strong>{preview.fullWidth} × {preview.fullHeight - trim.top - trim.bottom}</strong><span>{trim.top || trim.bottom ? t('已裁剪首尾 · 全宽保留', 'Edges trimmed · Full width') : t('原图尺寸 · 全宽保留', 'Original size · Full width')}</span></div><button className={trimming ? 'active' : ''} disabled={dirty || !!busy} aria-expanded={trimming} onClick={() => { setTrimming(!trimming); setRedacting(false); }}>{t('裁剪首尾', 'Trim edges')}</button><button className={redacting ? 'active' : ''} disabled={dirty || !!busy} onClick={() => setRedacting(!redacting)} aria-pressed={redacting}>{redacting ? t('退出遮挡', 'Finish redacting') : t('遮挡隐私', 'Redact')}</button>{!!redactions.length && <button onClick={() => setRedactions(redactions.slice(0, -1))} disabled={!!busy}>{t('撤销遮挡', 'Undo redaction')}</button>}<select aria-label={t('导出格式', 'Export format')} value={format} onChange={e => setFormat(e.target.value)}><option value="image/png">PNG</option><option value="image/jpeg">JPEG</option></select><select aria-label={t('导出尺寸', 'Export size')} value={scale} onChange={e => setScale(+e.target.value)}><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option></select><button className="primary" disabled={!!busy || dirty || !!unresolved} onClick={() => void exportImage()}>{t('保存长图', 'Save image')} ↓</button>{typeof navigator !== 'undefined' && !!navigator.share && <button disabled={!!busy || dirty} onClick={() => void exportImage(true)}>{t('分享', 'Share')}</button>}</div>}
+        {preview && trimming && <EdgeCropper url={preview.url} width={preview.fullWidth} height={preview.fullHeight} trim={trim} firstHeight={items[0].height} lastHeight={items.at(-1)!.height} onChange={next => { setTrim(next); setNotice(''); setDraft(null); pointerStart.current = null; }} disabled={dirty || !!busy} zh={zh} />}
+        {redacting && <p className="inline-note">{t('在预览图上拖出矩形，实体色遮挡会写入导出图片。重新拼接或应用范围会重置裁剪与遮挡，请重新检查。', 'Drag a rectangle over the preview. Redactions are baked into the export. Realigning or applying regions resets trimming and redactions; review them again.')}</p>}
         {!!preview?.unresolved && <p className="inline-note">{t('部分遮挡区域没有可用的原图覆盖，已保留原样。补截图或手动调整后重试。', 'Some occlusions lack clean source coverage and remain unchanged. Add a screenshot or adjust them.')}</p>}
       </section>
     </div>
