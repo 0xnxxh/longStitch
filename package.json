@@ -9,19 +9,29 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "typecheck": "astro sync && tsc --noEmit"
+    "typecheck": "astro sync && tsc --noEmit",
+    "check:build": "node scripts/check-build.mjs",
+    "deploy:check": "wrangler deploy --dry-run",
+    "verify": "npm test && npm run typecheck && npm run build && npm run check:build"
   },
   "devDependencies": {
     "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "sharp": "0.35.4",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.130.0"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.5",
     "astro": "^7.3.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "overrides": {
+    "sharp": "$sharp"
   }
 }

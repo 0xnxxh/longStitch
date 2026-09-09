@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro';
+export function getStaticPaths() { return ['en', 'zh-cn'].map(lang => ({ params: { lang } })); }
+const zh = Astro.params.lang === 'zh-cn';
+---
+<Layout title={zh ? '隐私说明 — LongStitch' : 'Privacy — LongStitch'} lang={zh ? 'zh-CN' : 'en'}>
+  <main class="article"><span class="eyebrow">YOUR IMAGES STAY YOURS.</span><h1>{zh ? '隐私说明' : 'Privacy'}</h1><p class="lead">{zh ? '图片处理发生在你的浏览器里。我们没有图片上传接口。' : 'Image processing happens in your browser. There is no image upload endpoint.'}</p>
+    <h2>{zh ? '图片与编辑内容' : 'Images and edits'}</h2><p>{zh ? '你选择的文件、图片像素、遮挡内容和拼接结果保存在当前页面内存中，不发送到服务器，不保存到云端，也不用于训练模型。清空、关闭或刷新页面后，需要重新选择文件。已经下载到设备的文件由你自行管理。' : 'Selected files, image pixels, redactions and results stay in the current page’s memory. They are not sent to a server, saved to a cloud account or used to train models. Clear, close or refresh the page to end the edit. Downloaded files remain under your control.'}</p>
+    <h2>{zh ? '网站请求' : 'Website requests'}</h2><p>{zh ? '打开网站会向托管服务请求 HTML、样式和程序文件。托管服务可能处理 IP 地址、浏览器信息和请求日志；“图片不上传”不意味着访问网站完全没有网络请求。编辑器不加载广告、行为分析或会话回放脚本。' : 'Opening the site requests HTML, styles and program files from its host. Hosting services may process IP addresses, browser information and request logs. “No image uploads” does not mean that visiting a website makes no network requests. The editor loads no advertising, analytics or session replay scripts.'}</p>
+    <h2>{zh ? 'Cookie 与广告' : 'Cookies and advertising'}</h2><p>{zh ? '当前版本未接入广告或用户追踪服务，也不创建用户账户。未来若在公开内容页添加广告，会在上线前更新此说明，并按实际地区和广告方式配置同意管理。图片编辑页继续与广告脚本分开。' : 'This version has no advertising or user tracking integration and creates no user accounts. If public content pages add advertising later, this notice will be updated before launch and consent controls will reflect the actual regions and ad setup. The image editor remains separate from ad scripts.'}</p>
+    <h2>{zh ? '分享前请复查' : 'Review before sharing'}</h2><p>{zh ? '在编辑器里遮挡敏感信息后，请打开导出文件确认。分享操作会将图片发送给你选择的应用或收件人，请只在你认可的范围内分享。' : 'After redacting sensitive details, open the exported file to check the result. Sharing sends it to the app or recipient you choose. Share only with the people and services you intend.'}</p><p class="updated">2026-09-09 · Beta</p>
+  </main>
+</Layout>

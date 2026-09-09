@@ -1,0 +1,29 @@
+---
+import Layout from '../../layouts/Layout.astro';
+export function getStaticPaths() { return ['en', 'zh-cn'].map(lang => ({ params: { lang } })); }
+const zh = Astro.params.lang === 'zh-cn', base = `/${Astro.params.lang}/`;
+---
+<Layout title={zh ? '长截图拼接指南 — LongStitch' : 'Screenshot stitching guide — LongStitch'} lang={zh ? 'zh-CN' : 'en'}>
+  <main class="article"><a class="back-link" href={base}>← LongStitch</a><span class="eyebrow">A CLEAN JOIN, STEP BY STEP.</span><h1>{zh ? '拍好截图，拼好长图。' : 'Better screenshots. Cleaner joins.'}</h1>
+    {zh ? <>
+      <p class="lead">LongStitch 适合拼接同一页面的连续纵向截图。聊天、文章、订单和设置列表都可以尝试，关键是相邻图片中有相同内容。</p>
+      <h2>1. 拍摄时留出重叠</h2><p>从页面上方开始，截图后向下滚动一部分，再截下一张。建议保留约 20–40% 的重叠；不要刚好翻过完整一屏。等动画、图片加载和工具栏收缩结束再截图，并保持相同缩放。</p><p>状态栏、底栏和滚动条可以留在截图里，不需要提前裁掉整个边缘。不要混用不同设备或不同宽度的截图。</p>
+      <h2>2. 按顺序选择并自动拼接</h2><p>打开编辑器，从相册多选 PNG、JPEG 或 WebP。桌面也可以拖放文件或粘贴图片。列表中的顺序就是拼接顺序，可以用箭头、拖动或“反转顺序”调整。点击“自动拼接”后等待预览。</p>
+      <h2>3. 检查每个接缝</h2><p>逐一选择“1 → 2”等接缝。局部预览会半透明叠加两张截图；相同文字应该重合，橙色横线标记连接位置。出现重影时，逐像素调整“向下位移”；位移正确但切在文字中间时，调整“接缝在上图的位置”。</p><p>点击“应用调整并预览”后再检查长图。修改接缝会使旧预览失效，并清除原有隐私遮挡，防止遮挡位置随内容移动而错位。</p>
+      <h2>4. 处理常驻栏与滚动条</h2><p>正常重叠充足时，上图底部和下图顶部的常驻栏会通过接缝绕开，最上方与最下方保留外层栏。工具只标记局部滚动条候选，不裁掉整条右边缘。</p><p>在“检查遮挡范围”中，可修改或删除候选矩形，或添加固定工具栏的范围。它们是待恢复区域，不是裁剪框。只有其他截图中存在已对齐、附近内容一致的未遮挡像素时，才会替换。所有截图都遮住的位置无法原样恢复；可以保留原状或补拍截图。</p>
+      <h2>5. 遮挡隐私并导出</h2><p>点击“遮挡隐私”，在预览中拖出矩形覆盖姓名、号码、地址等内容。遮挡会写入图片像素；导出后再打开检查一次。PNG 保留无损像素，JPEG 文件通常更小但会压缩画质。100% 是原始尺寸，75% 和 50% 会缩小。</p>
+      <h2>如果没有找到重叠</h2><p>先检查顺序、缩放和截图是否来自同一页面。重复列表、大片空白、动态视频和浮层可能让匹配不确定。补一张跨越两图中间的截图通常比反复调整更有效。如果本来就没有重叠，可以明确选择“直接连接，不去重”，工具将保留两张图片的全部高度。</p>
+      <h2>容量与浏览器</h2><p>当前单张限制 1600 万像素，一批共 3200 万像素，合成输出不超过 4800 万像素。这是保护内存的上限，不保证每台手机都能处理到上限。内存紧张、画布不支持或保存失败时，减少图片、选择 50% 导出或换桌面浏览器。</p><p>手机浏览器可选择图片并下载；系统分享入口取决于浏览器支持。当前版本仍在 Beta，尚未完成真实 iOS / Android 设备的全面验证。没有 HEIC 解码功能，请先转为 PNG/JPEG。刷新或关闭页面会清除本次编辑。</p>
+    </> : <>
+      <p class="lead">LongStitch joins consecutive vertical screenshots of the same page. Chats, articles, receipts and settings lists can work when neighboring images share recognizable content.</p>
+      <h2>1. Leave some overlap</h2><p>Start at the top, take a screenshot, then scroll part of a screen and capture again. Aim for about 20–40% overlap. Wait for animations, images and collapsing toolbars to settle. Keep the same zoom and device width.</p><p>You can leave status bars, bottom controls and scrollbars in the images. There is no need to crop an entire edge first.</p>
+      <h2>2. Choose and order your screenshots</h2><p>Select PNG, JPEG or WebP files in the editor. On desktop, you can also drop files or paste images. The visible order is the stitching order. Use arrows, drag items or reverse the list, then choose “Stitch screenshots”.</p>
+      <h2>3. Inspect every join</h2><p>Select a seam such as “1 → 2”. The close-up overlays both images transparently. Matching text should line up; the orange line marks the actual join. Adjust the vertical offset to fix doubled text, then move the seam to a clear line if needed.</p><p>Apply your changes to update the preview. Realigning invalidates the old preview and clears existing redactions, so private information is not accidentally exposed by a shifted cover.</p>
+      <h2>4. Review fixed controls and scrollbars</h2><p>With sufficient overlap, joins can bypass the first image’s bottom controls and the next image’s top controls while keeping the outermost bars. Scrollbar detection produces local candidate rectangles, never a full edge crop.</p><p>Open “Review occlusion masks” to adjust, remove or add a rectangle. These mark regions to recover, not crop. Replacement requires an aligned screenshot with matching nearby content and clean pixels. If every screenshot covers the same content, its original pixels are unavailable. Keep the original or take another screenshot.</p>
+      <h2>5. Redact and save</h2><p>Choose “Redact” and drag rectangles over names, account numbers or addresses. Covers are baked into exported pixels. Open the saved image and review it before sharing. PNG is lossless; JPEG trades some image quality for a smaller file. 100% keeps original dimensions; 75% and 50% reduce them.</p>
+      <h2>When no overlap is found</h2><p>Check image order, zoom and page identity first. Repeated lists, large blank areas, video and overlays can make matches ambiguous. A new screenshot spanning the gap often helps. If the images intentionally have no overlap, choose “Join without overlap” to keep their complete heights.</p>
+      <h2>Capacity and browsers</h2><p>The current limits are 16 megapixels per image, 32 megapixels per batch and 48 megapixels for the output. These are memory safeguards, not a guarantee that every phone can reach them. If your browser cannot create or save the image, try fewer screenshots, 50% export or a desktop browser.</p><p>Mobile file selection and downloads use browser capabilities. System sharing appears where supported. This Beta has not completed comprehensive physical iOS / Android testing. HEIC is not supported; convert it to PNG/JPEG first. Refreshing or closing the page clears the current edit.</p>
+    </>}
+    <a class="button primary" href={`${base}stitch/`}>{zh ? '开始拼接 →' : 'Start stitching →'}</a>
+  </main>
+</Layout>

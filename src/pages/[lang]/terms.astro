@@ -1,0 +1,6 @@
+---
+import Layout from '../../layouts/Layout.astro';
+export function getStaticPaths() { return ['en', 'zh-cn'].map(lang => ({ params: { lang } })); }
+const zh = Astro.params.lang === 'zh-cn';
+---
+<Layout title={zh ? '使用条款 — LongStitch' : 'Terms — LongStitch'} lang={zh ? 'zh-CN' : 'en'}><main class="article"><span class="eyebrow">BEFORE YOU SHARE.</span><h1>{zh ? '使用条款' : 'Terms of use'}</h1><p>{zh ? '请仅处理和分享你有权使用的图片，尊重他人的隐私与版权。你保留原始图片及合成结果的权利；本工具不因处理图片而获得它们的使用授权。' : 'Process and share only images you have the right to use, respecting privacy and copyright. You retain your rights to the original images and results; processing them grants this tool no license to use them.'}</p><p>{zh ? '自动拼接可能出现错位、遗漏或残留遮挡。导出前后均应检查结果，特别是用于凭证、订单或重要记录时。请保留原始截图；合成图片不应被当作未经编辑的原始记录。' : 'Automatic stitching can misalign content or leave occlusions. Check results before and after export, especially for receipts or important records. Keep your originals; a stitched image should not be presented as an unedited original record.'}</p><p>{zh ? '本 Beta 工具按现状提供，不保证适合所有图片、设备或用途。页面刷新或关闭会丢失未保存的编辑。后续版本可能调整功能或容量限制。' : 'This Beta is provided as available and is not guaranteed to work with every image, device or use case. Refreshing or closing loses unsaved edits. Future versions may change features or capacity limits.'}</p><p class="updated">2026-09-09 · Beta</p></main></Layout>

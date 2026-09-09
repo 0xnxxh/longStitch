@@ -1,0 +1,11 @@
+---
+import Layout from '../../layouts/Layout.astro';
+export function getStaticPaths() { return ['en', 'zh-cn'].map(lang => ({ params: { lang } })); }
+const zh = Astro.params.lang === 'zh-cn';
+const contact = import.meta.env.PUBLIC_CONTACT_EMAIL;
+---
+<Layout title={zh ? '关于 LongStitch' : 'About LongStitch'} lang={zh ? 'zh-CN' : 'en'}>
+  <main class="article"><span class="eyebrow">KEEP THE WHOLE STORY.</span><h1>{zh ? '关于 LongStitch' : 'About LongStitch'}</h1><p class="lead">{zh ? '让几张连续截图，成为一张清晰、完整、容易分享的长图。' : 'Make a sequence of screenshots clear, connected and easy to share.'}</p><p>{zh ? 'LongStitch 是一个无需注册的浏览器工具。它利用截图中真实存在的重叠内容进行对齐，不使用生成式 AI 重画文字。自动结果可能出错，因此我们提供接缝检查、手动调整和隐私遮挡。' : 'LongStitch is a browser tool that needs no account. It aligns real shared content rather than using generative AI to redraw text. Automatic results can be wrong, so seam review, manual adjustment and redaction are part of the workflow.'}</p><h2>{zh ? '当前版本' : 'Current version'}</h2><p>{zh ? 'Beta · 支持纵向截图、PNG / JPEG / WebP 输入，PNG / JPEG 输出。适合相同宽度、相同缩放的连续截图。暂不支持录屏、网页地址抓取、HEIC 或云端保存。' : 'Beta · Vertical screenshots with PNG / JPEG / WebP input and PNG / JPEG output. Use consecutive screenshots with matching widths and zoom. Video, URL capture, HEIC and cloud storage are not supported.'}</p>{contact && <><h2>{zh ? '联系' : 'Contact'}</h2><p><a href={`mailto:${contact}`}>{contact}</a></p></>}
+    <p><a href={`/${Astro.params.lang}/terms/`}>{zh ? '使用条款 →' : 'Terms of use →'}</a></p>
+  </main>
+</Layout>

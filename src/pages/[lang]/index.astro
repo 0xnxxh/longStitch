@@ -1,0 +1,20 @@
+---
+import Layout from '../../layouts/Layout.astro';
+export function getStaticPaths() { return ['en', 'zh-cn'].map(lang => ({ params: { lang } })); }
+const zh = Astro.params.lang === 'zh-cn', base = `/${Astro.params.lang}/`;
+---
+<Layout title={zh ? 'LongStitch — 自动拼接长截图' : 'LongStitch — Keep the whole story'} lang={zh ? 'zh-CN' : 'en'}>
+  <main class="landing">
+    <span class="eyebrow">LONG SCREENSHOTS. ZERO UPLOADS.</span>
+    <h1>{zh ? '几张截图，' : 'A few screenshots.'}<br /><em>{zh ? '一个完整故事。' : 'One complete picture.'}</em></h1>
+    <p>{zh ? '自动识别重叠，保留清晰文字。' : 'Find the overlaps. Keep every detail.'}<br />{zh ? '在你的设备上，把多张截图拼成一张长图。' : 'Turn a sequence of screenshots into one long image, on your device.'}</p>
+    <a class="button primary" href={`${base}stitch/`}>{zh ? '开始拼接' : 'Start stitching'} <span>↗</span></a>
+    <a class="text-link" href={`${base}guide/`}>{zh ? '先看看如何使用 →' : 'See how it works →'}</a>
+    <div class="landing-notes"><span>{zh ? '无需注册' : 'No account'}</span><span>{zh ? '图片不上传' : 'No image uploads'}</span><span>{zh ? '免费导出' : 'Free export'}</span></div>
+    <section class="home-details">
+      <article><span class="step">01 / CONNECT</span><h2>{zh ? '重复内容，只留一次。' : 'Keep the content, once.'}</h2><p>{zh ? '选择同一页面从上到下的连续截图，工具会寻找共有内容。不确定的接缝会明确提示，方便你检查。' : 'Choose consecutive screenshots from the same page, top to bottom. Shared content guides alignment; uncertain joins are flagged for review.'}</p></article>
+      <article><span class="step">02 / REFINE</span><h2>{zh ? '边缘细节，不必牺牲。' : 'Don’t sacrifice the edges.'}</h2><p>{zh ? '保留图片完整宽度。滚动条和常驻元素不会变成整条裁边；可用其他截图里的真实像素覆盖遮挡。' : 'The image keeps its full width. Scrollbars and fixed controls don’t trigger an edge crop. Clean pixels from another screenshot can cover an occlusion.'}</p></article>
+      <article><span class="step">03 / SAVE</span><h2>{zh ? '检查后，再放心分享。' : 'Review before you share.'}</h2><p>{zh ? '放大接缝、调整位置、遮住隐私信息，然后导出 PNG 或 JPEG。图片留在当前浏览器中，关闭或刷新后需要重新选择。' : 'Inspect joins, adjust alignment and cover private details before exporting PNG or JPEG. Images stay in this browser session; reselect them after a refresh.'}</p></article>
+    </section>
+  </main>
+</Layout>
