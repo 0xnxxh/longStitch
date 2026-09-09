@@ -122,7 +122,21 @@ export function matchPair(a: Raster, b: Raster): PairMatch {
   const offset = winner.offset;
   const quality = winner.residual;
   const unique = !ranked[1] || quality + .03 < ranked[1].residual || quality < ranked[1].residual * .5;
-  const confident = quality < .12 && unique;
+  let informative = 0, agreeing = 0;
+  // Row averages alone can align unrelated text in an identical layout.
+  // Verify textured original pixels independently of the row descriptors.
+  for (let y = Math.max(offset + Math.round(b.height * .08), Math.round(a.height * .08)); y < Math.min(a.height * .94, offset + b.height * .94); y += 5) {
+    if (y + 8 >= a.height || y - offset + 8 >= b.height) continue;
+    if (error(ad, bd, y, y - offset, 8, 2) > Math.max(2, deviation(ad, y, 8) * .12)) continue;
+    for (let x = Math.round(a.width * .05); x < a.width * .94; x += 7) {
+      const av = gray(a, x, y), bv = gray(b, x, y - offset);
+      const edge = Math.max(Math.abs(av - gray(a, x - 2, y)), Math.abs(bv - gray(b, x - 2, y - offset)));
+      if (edge < 10) continue;
+      informative++;
+      if (Math.abs(av - bv) < 14) agreeing++;
+    }
+  }
+  const confident = quality < .12 && unique && informative >= 16 && agreeing / informative > .72;
   return {
     status: confident ? 'matched' : 'uncertain', offset, seam: chooseSeam(a, b, offset),
     score: Math.max(0, 1 - quality), support: winner.count,
@@ -139,7 +153,7 @@ export function planSegments(images: Pick<Raster, 'width' | 'height'>[], pairs: 
     if (p.status === 'uncertain') throw new Error('Resolve uncertain seams before export');
     if (!Number.isInteger(p.offset) || p.offset < 0 || p.offset > images[i].height) throw new Error('Invalid offset');
     starts.push(starts[i] + p.offset);
-    const cut = starts[i] + p.seam;
+    const cut = p.status === 'duplicate' ? cuts[i] : starts[i] + p.seam;
     if (!Number.isInteger(p.seam) || cut < cuts[i] || cut < starts[i + 1] || cut > Math.min(starts[i] + images[i].height, starts[i + 1] + images[i + 1].height)) throw new Error('Seams conflict; adjust the neighboring seams');
     cuts.push(cut);
   }
@@ -176,12 +190,13 @@ export function compose(images: Raster[], pairs: PairMatch[], masks: Rect[][] = 
   for (const s of plan.segments) {
     const touched = new Set<number>();
     for (const rect of masks[s.image] ?? []) {
+      const validDonors = images.map((image, j) => j !== s.image && donorContextMatches(images[s.image], image, rect, plan.starts[s.image] - plan.starts[j]));
       for (let y = Math.max(s.sourceY, Math.floor(rect.y)); y < Math.min(s.sourceY + s.height, rect.y + rect.height); y++) {
         for (let x = Math.max(0, Math.floor(rect.x)); x < Math.min(plan.width, rect.x + rect.width); x++) {
           const gy = y + plan.starts[s.image], pixel = gy * plan.width + x;
           if (touched.has(pixel)) continue;
           touched.add(pixel);
-          const donor = images.findIndex((image, j) => j !== s.image && gy >= plan.starts[j] && gy < plan.starts[j] + image.height && !(masks[j] ?? []).some(r => contains(r, x, gy - plan.starts[j])) && donorContextMatches(images[s.image], image, rect, plan.starts[s.image] - plan.starts[j]));
+          const donor = images.findIndex((image, j) => validDonors[j] && gy >= plan.starts[j] && gy < plan.starts[j] + image.height && !(masks[j] ?? []).some(r => contains(r, x, gy - plan.starts[j])));
           if (donor < 0) { unresolvedPixels++; continue; }
           const source = ((gy - plan.starts[donor]) * plan.width + x) * 4;
           data.set(images[donor].data.subarray(source, source + 4), pixel * 4);

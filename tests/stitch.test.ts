@@ -98,3 +98,14 @@ test('periodic content with multiple equally plausible offsets requires review',
   for (let y = 24; y < source.height; y++) source.data.set(source.data.slice((y % 24) * 160 * 4, (y % 24 + 1) * 160 * 4), y * 160 * 4);
   assert.notEqual(matchPair(shot(source, 0), shot(source, 251)).status, 'matched');
 });
+
+test('duplicates between overlapping images do not make seam order conflict', () => {
+  const source = page();
+  const images = [shot(source, 0), shot(source, 250), shot(source, 250), shot(source, 500)];
+  const pairs = images.slice(1).map((next, i) => matchPair(images[i], next));
+  assert.deepEqual(compose(images, pairs).image.data, source.data.slice(0, 980 * 160 * 4));
+});
+
+test('different text in the same repeated layout is not a valid overlap', () => {
+  assert.equal(matchPair(shot(page(320, 2000), 0, 700), shot(page(320, 2000, 3789), 100, 700)).status, 'uncertain');
+});

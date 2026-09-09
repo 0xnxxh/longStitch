@@ -5,9 +5,23 @@
   "type": "module",
   "scripts": {
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "samples": "node --experimental-strip-types scripts/check-samples.ts"
+    "samples": "node --experimental-strip-types scripts/check-samples.ts",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro sync && tsc --noEmit"
   },
   "devDependencies": {
-    "sharp": "0.35.4"
+    "@types/node": "^26.5.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "sharp": "0.35.4",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@astrojs/react": "^6.0.5",
+    "astro": "^7.3.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   }
 }

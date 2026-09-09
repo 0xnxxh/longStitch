@@ -1,0 +1,27 @@
+---
+import '../styles/global.css';
+const { title = 'LongStitch', description = 'Join overlapping screenshots into one clear image. Everything stays on your device.', lang = 'zh-CN', editor = false } = Astro.props;
+const zh = lang === 'zh-CN';
+const base = zh ? '/zh-cn/' : '/en/';
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f6f5ef" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href={base} aria-label="LongStitch home"><span class="brand-mark" aria-hidden="true">▰<br />▰</span>LongStitch<span class="beta">BETA</span></a>
+      <nav aria-label={zh ? '主导航' : 'Main navigation'}>
+        <a href={`${base}guide/`}>{zh ? '使用指南' : 'How it works'}</a>
+        <a href={`${zh ? '/en/' : '/zh-cn/'}${editor ? 'stitch/' : ''}`} lang={zh ? 'en' : 'zh-CN'}>{zh ? 'EN' : '中文'}</a>
+      </nav>
+    </header>
+    <slot />
+    <footer class="site-footer"><span>LongStitch · {zh ? '完整保留，连贯分享。' : 'Keep the whole story.'}</span><nav><a href={`${base}privacy/`}>{zh ? '隐私' : 'Privacy'}</a><a href={`${base}about/`}>{zh ? '关于' : 'About'}</a></nav></footer>
+  </body>
+</html>
