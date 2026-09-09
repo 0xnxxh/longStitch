@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { planSegments, type PairMatch, type Raster, type Rect } from '../core/stitch';
 import { canvasFor, decode, toBlob } from './image';
 import type { Job } from './worker';
+import MaskEditor from './MaskEditor';
 
 type Item = { id: string; file: File; url: string; width: number; height: number };
 type Preview = { url: string; width: number; height: number; fullWidth: number; fullHeight: number; unresolved: number; recovered: number };
@@ -14,6 +15,8 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
   const [pairs, setPairs] = useState<PairMatch[]>([]);
   const [originalPairs, setOriginalPairs] = useState<PairMatch[]>([]);
   const [masks, setMasks] = useState<Rect[][]>([]);
+  const [originalMasks, setOriginalMasks] = useState<Rect[][]>([]);
+  const [maskSource, setMaskSource] = useState(0);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState('');
   const [progress, setProgress] = useState(0);
@@ -47,7 +50,7 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current.url);
     previewRef.current = null; setPreview(null); setRedactions([]); setDraft(null);
   }
-  function invalidate() { setPairs([]); setOriginalPairs([]); setMasks([]); clearPreview(); setDirty(false); setError(''); setNotice(''); }
+  function invalidate() { setPairs([]); setOriginalPairs([]); setMasks([]); setOriginalMasks([]); setMaskSource(0); clearPreview(); setDirty(false); setError(''); setNotice(''); }
   function cancel() {
     sequence.current++; worker.current?.terminate(); worker.current = null;
     rejectJob.current?.(new Error('CANCELLED')); rejectJob.current = null;
@@ -140,7 +143,7 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
     try {
       if (items.some(i => i.width !== items[0].width)) throw new Error(t('图片宽度不同。请使用同一设备、相同缩放的截图。', 'Image widths differ. Use the same device and zoom.'));
       const result = await runWorker({ kind: 'analyze', images: await readImages(id) }, id);
-      setPairs(result.pairs); setOriginalPairs(result.pairs); setMasks(result.masks); setSelected(0);
+      setPairs(result.pairs); setOriginalPairs(result.pairs); setMasks(result.masks); setOriginalMasks(result.masks); setMaskSource(0); setSelected(0);
       await buildPreview(result.pairs, result.masks, id);
     } catch (e) { fail(e, id); } finally { finish(id); }
   }
@@ -225,7 +228,11 @@ export default function Editor({ lang }: { lang: 'zh' | 'en' }) {
     </div>
     {!!pairs.length && <section className="seam-panel"><div className="panel-heading"><h2><span className="step">03</span>{t('检查与微调', 'Review & refine')}</h2><span>{t('每个接缝都在你的掌控中', 'Every seam stays in your control')}</span></div><div className="seam-tabs" role="group" aria-label={t('选择接缝', 'Select seam')}>{pairs.map((p, i) => <button key={i} className={`${selected === i ? 'active' : ''} ${p.status === 'uncertain' ? 'needs-review' : ''}`} onClick={() => setSelected(i)}>{i + 1} → {i + 2} <span>{p.status === 'uncertain' ? t('需调整', 'Review') : p.status === 'duplicate' ? t('重复', 'Duplicate') : t('已对齐', 'Aligned')}</span></button>)}</div>
       {selectedPair && <div className="seam-editor"><SeamView first={items[selected]} second={items[selected + 1]} pair={selectedPair} label={t('接缝局部预览', 'Seam close-up')} /><div className="seam-controls"><p>{t('上图下半部与下图上半部透明叠加。文字应重合；横线是实际接缝。', 'The two screenshots overlap transparently. Text should align; the line marks the join.')}</p><label>{t('向下位移（像素）', 'Vertical offset (pixels)')}<input type="number" min="0" max={items[selected].height} value={selectedPair.offset} disabled={!!busy} onChange={e => editPair(selected, 'offset', +e.target.value)} /></label><input aria-label={t('调整重叠', 'Adjust overlap')} type="range" min="0" max={items[selected].height} value={selectedPair.offset} disabled={!!busy} onChange={e => editPair(selected, 'offset', +e.target.value)} /><label>{t('接缝在上图的位置', 'Seam position in first image')}<input type="number" min={selectedPair.offset} max={Math.min(items[selected].height, selectedPair.offset + items[selected + 1].height)} value={selectedPair.seam} disabled={!!busy} onChange={e => editPair(selected, 'seam', +e.target.value)} /></label><div className="row"><button disabled={!!busy} onClick={() => { setPairs(pairs.map((p, i) => i === selected ? originalPairs[i] : p)); changed(); }}>{t('恢复自动结果', 'Reset alignment')}</button><button disabled={!!busy} onClick={() => editPair(selected, 'offset', items[selected].height)}>{t('直接连接，不去重', 'Join without overlap')}</button><button disabled={!!busy || selectedPair.status !== 'uncertain'} onClick={() => { setPairs(pairs.map((p, i) => i === selected ? { ...p, status: 'matched', reason: 'Manually confirmed' } : p)); changed(); }}>{t('确认当前接缝', 'Confirm this seam')}</button></div><button className="primary" disabled={!!busy || !!unresolved} onClick={() => void refreshPreview()}>{t('应用调整并预览', 'Apply & preview')}</button></div></div>}
-      <details className="occlusion-settings"><summary>{t('滚动条与常驻元素：检查遮挡范围', 'Scrollbars & fixed controls: review occlusion masks')}</summary><p>{t('这些矩形仅标记遮挡，不裁掉图片。只从已对齐且附近内容一致的其他截图取像素；没有来源时保留原图。可添加顶部/底部栏或悬浮按钮的准确范围。', 'These rectangles mark occlusions; they do not crop the image. Pixels are borrowed only from aligned screenshots with matching nearby content. Otherwise originals stay. Add precise bounds for fixed or floating controls.')}</p>{items.map((item, i) => <div className="mask-item" key={item.id}><strong>{i + 1}. {item.file.name}</strong>{(masks[i] ?? []).map((r, j) => <div className="mask-fields" key={j}>{(['x', 'y', 'width', 'height'] as const).map(key => <label key={key}>{key}<input aria-label={`${i + 1} ${j + 1} ${key}`} type="number" value={r[key]} min="0" disabled={!!busy} onChange={e => { setMasks(masks.map((list, a) => a === i ? list.map((rect, b) => b === j ? { ...rect, [key]: Math.max(0, Math.round(+e.target.value)) } : rect) : list)); changed(); }} /></label>)}<button disabled={!!busy} onClick={() => { setMasks(masks.map((list, a) => a === i ? list.filter((_, b) => b !== j) : list)); changed(); }}>{t('删除', 'Remove')}</button></div>)}<button disabled={!!busy} onClick={() => { setMasks(items.map((_, a) => [...(masks[a] ?? []), ...(a === i ? [{ x: 0, y: 0, width: item.width, height: Math.round(item.height * .06) }] : [])])); changed(); }}>{t('添加遮挡范围', 'Add occlusion')}</button></div>)}</details>
+      <details className="occlusion-settings"><summary>{t('滚动条与常驻元素：调整遮挡范围', 'Scrollbars & fixed controls: edit recovery regions')}</summary>
+        <div className="mask-source-picker"><label>{t('选择要调整的截图', 'Choose a screenshot')}<select aria-label={t('选择要调整的截图', 'Choose a screenshot')} value={maskSource} disabled={!!busy} onChange={e => setMaskSource(+e.target.value)}>{items.map((item, i) => <option key={item.id} value={i}>{i + 1}. {item.file.name}</option>)}</select></label><span>{t('只恢复有真实来源的像素，没有来源时保留原样。', 'Only real covered pixels are restored. Missing content stays unchanged.')}</span></div>
+        <MaskEditor key={items[maskSource].id} source={items[maskSource]} masks={masks[maskSource] ?? []} originalMasks={originalMasks[maskSource] ?? []} disabled={!!busy} zh={zh} onChange={next => { setMasks(masks.map((list, i) => i === maskSource ? next : list)); changed(); }} />
+        <div className="region-apply"><span>{dirty ? t('范围已修改，应用后查看长图效果。', 'Regions changed. Apply them to update the result.') : t('当前范围已应用。', 'Current regions are applied.')}</span><button className="primary" disabled={!!busy || !!unresolved || !dirty} onClick={() => void refreshPreview()}>{t('应用范围并预览', 'Apply regions & preview')}</button></div>
+      </details>
     </section>}
     <div className="workspace-help"><span>↳</span><p>{t('小提示：连续截图保留约 20–40% 重叠。等待页面稳定，避免切换缩放。遇到常驻栏，不必手动裁掉整条边缘。', 'Tip: leave about 20–40% overlap. Wait for the page to settle and keep the same zoom. You don’t need to crop entire edges to handle fixed controls.')}</p></div>
   </main>;
